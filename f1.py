@@ -33,7 +33,10 @@ def get_fastest_lap(session, driver_code: str):
 
 def get_telemetry_data(fastest_lap):
     """
-    Get telemetry data for a driver's fastest lap with distance.
+    Get telemetry data for a driver's fastest lap with distance and position.
+
+    Using get_telemetry() instead of get_car_data() so that X/Y coordinates
+    are available for the circuit map.
     """
-    telemetry = fastest_lap.get_car_data().add_distance()
+    telemetry = fastest_lap.get_telemetry().add_distance()
     return telemetry

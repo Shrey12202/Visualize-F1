@@ -3,6 +3,9 @@ import matplotlib.pyplot as plt
 from matplotlib import style
 import fastf1
 import pandas as pd
+import numpy as np
+import joblib
+
 from f1 import (
     load_session_data,
     get_drivers_in_session,
@@ -76,6 +79,21 @@ st.markdown(
 # Set Matplotlib to Dark Background
 style.use('dark_background')
 
+
+@st.cache_resource
+def load_laptime_model():
+    """
+    Load the trained lap time prediction pipeline (preprocessor + model).
+    Expects a joblib file at models/laptime_best_model.pkl
+    """
+    try:
+        model = joblib.load("models/laptime_best_model.pkl")
+        return model
+    except Exception as e:
+        st.error(f"⚠️ Could not load lap time model: {e}")
+        return None
+
+
 # ========================
 # 🏎️ App Title
 # ========================
@@ -136,10 +154,12 @@ if "session_data" in st.session_state and st.session_state.session_data:
                         if pd.isna(val) or val is None:
                             return 'N/A'
                         return str(val)
+
                     final_position = safe_str(driver_result['Position'].values[0])
                     total_time = safe_str(driver_result['Time'].values[0]) if 'Time' in driver_result.columns else 'N/A'
                     points = safe_str(driver_result['Points'].values[0]) if 'Points' in driver_result.columns else 'N/A'
                     status = safe_str(driver_result['Status'].values[0]) if 'Status' in driver_result.columns else 'N/A'
+
             st.markdown('<div class="info-card">', unsafe_allow_html=True)
             st.subheader(f"👤 {driver_info.get('FullName', selected_driver)}")
             st.markdown(f"""
@@ -160,12 +180,13 @@ if "session_data" in st.session_state and st.session_state.session_data:
             # ========================
             # 📋 Tabs for all charts
             # ========================
-            tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
                 "Telemetry Graphs",
                 "Tyre Strategy",
                 "Circuit Map",
                 "Track Status",
-                "Session Info"
+                "Session Info",
+                "Model & Lap Time Prediction"
             ])
 
             # --- Tab 1: Telemetry Graphs ---
@@ -175,7 +196,7 @@ if "session_data" in st.session_state and st.session_state.session_data:
                     st.markdown('<div class="graph-container">', unsafe_allow_html=True)
                     st.subheader("🏃 Speed vs Distance")
                     fig1, ax1 = plt.subplots(figsize=(6, 4))
-                    ax1.plot(telemetry['Distance'], telemetry['Speed'], label='Speed', color='#00FFFF', linewidth=2)
+                    ax1.plot(telemetry['Distance'], telemetry['Speed'], label='Speed', linewidth=2)
                     ax1.set_xlabel("Distance (m)", color='white')
                     ax1.set_ylabel("Speed (km/h)", color='white')
                     ax1.set_title(f"{selected_driver} - Fastest Lap Speed", color='white', fontsize=12, fontweight='bold')
@@ -184,12 +205,13 @@ if "session_data" in st.session_state and st.session_state.session_data:
                     plt.tight_layout()
                     st.pyplot(fig1)
                     st.markdown('</div>', unsafe_allow_html=True)
+
                 with colB:
                     st.markdown('<div class="graph-container">', unsafe_allow_html=True)
                     st.subheader("🦶 Throttle & Brake vs Distance")
                     fig2, ax2 = plt.subplots(figsize=(6, 4))
-                    ax2.plot(telemetry['Distance'], telemetry['Throttle'], label='Throttle (%)', color='#00FF00', linewidth=2)
-                    ax2.plot(telemetry['Distance'], telemetry['Brake'], label='Brake (%)', color='#FF0000', linewidth=2)
+                    ax2.plot(telemetry['Distance'], telemetry['Throttle'], label='Throttle (%)', linewidth=2)
+                    ax2.plot(telemetry['Distance'], telemetry['Brake'], label='Brake (%)', linewidth=2)
                     ax2.set_xlabel("Distance (m)", color='white')
                     ax2.set_ylabel("Percentage", color='white')
                     ax2.set_title(f"{selected_driver} - Throttle & Brake", color='white', fontsize=12, fontweight='bold')
@@ -198,11 +220,12 @@ if "session_data" in st.session_state and st.session_state.session_data:
                     plt.tight_layout()
                     st.pyplot(fig2)
                     st.markdown('</div>', unsafe_allow_html=True)
+
                 with colC:
                     st.markdown('<div class="graph-container">', unsafe_allow_html=True)
                     st.subheader("⚙️ Gear vs Distance")
                     fig3, ax3 = plt.subplots(figsize=(6, 4))
-                    ax3.plot(telemetry['Distance'], telemetry['nGear'], label='Gear', color='#FFA500', linewidth=2, marker='o', markersize=4)
+                    ax3.plot(telemetry['Distance'], telemetry['nGear'], label='Gear', linewidth=2, marker='o', markersize=4)
                     ax3.set_xlabel("Distance (m)", color='white')
                     ax3.set_ylabel("Gear", color='white')
                     ax3.set_title(f"{selected_driver} - Gear Changes", color='white', fontsize=12, fontweight='bold')
@@ -211,13 +234,14 @@ if "session_data" in st.session_state and st.session_state.session_data:
                     plt.tight_layout()
                     st.pyplot(fig3)
                     st.markdown('</div>', unsafe_allow_html=True)
+
                 # Second row: RPM and Lap Times
                 colD, colE, _ = st.columns(3)
                 with colD:
                     st.markdown('<div class="graph-container">', unsafe_allow_html=True)
                     st.subheader("🎛 RPM vs Distance")
                     fig4, ax4 = plt.subplots(figsize=(6, 4))
-                    ax4.plot(telemetry['Distance'], telemetry['RPM'], label='RPM', color='#800080', linewidth=2)
+                    ax4.plot(telemetry['Distance'], telemetry['RPM'], label='RPM', linewidth=2)
                     ax4.set_xlabel("Distance (m)", color='white')
                     ax4.set_ylabel("RPM", color='white')
                     ax4.set_title(f"{selected_driver} - Engine RPM", color='white', fontsize=12, fontweight='bold')
@@ -226,12 +250,13 @@ if "session_data" in st.session_state and st.session_state.session_data:
                     plt.tight_layout()
                     st.pyplot(fig4)
                     st.markdown('</div>', unsafe_allow_html=True)
+
                 with colE:
                     st.markdown('<div class="graph-container">', unsafe_allow_html=True)
                     st.subheader("⏱ Lap Times Progression")
                     fig5, ax5 = plt.subplots(figsize=(6, 4))
                     lap_times = driver_laps['LapTime'].dt.total_seconds()
-                    ax5.plot(driver_laps['LapNumber'], lap_times, marker='o', linestyle='-', color='#FFD700', linewidth=2, markersize=6)
+                    ax5.plot(driver_laps['LapNumber'], lap_times, marker='o', linestyle='-', linewidth=2, markersize=6)
                     ax5.set_xlabel("Lap Number", color='white')
                     ax5.set_ylabel("Lap Time (s)", color='white')
                     ax5.set_title(f"{selected_driver} - Lap Times", color='white', fontsize=12, fontweight='bold')
@@ -255,13 +280,13 @@ if "session_data" in st.session_state and st.session_state.session_data:
                     'WET': 'blue'
                 }
                 for _, row in stints.iterrows():
-                    color = compound_colors.get(row['Compound'].upper(), 'gray')
+                    color = compound_colors.get(str(row['Compound']).upper(), 'gray')
                     ax_stints.barh(
                         y=row['Compound'],
                         width=len(driver_laps[driver_laps['Stint'] == row['Stint']]),
                         left=row['LapNumber'],
-                        color=color,
-                        edgecolor='black'
+                        edgecolor='black',
+                        color=color
                     )
                 ax_stints.set_xlabel("Lap Number")
                 ax_stints.set_ylabel("Tyre Compound")
@@ -279,7 +304,7 @@ if "session_data" in st.session_state and st.session_state.session_data:
                     y = telemetry['Y']
                     speed = telemetry['Speed']
                     fig_map, ax_map = plt.subplots(figsize=(8, 8))
-                    sc = ax_map.scatter(x, y, c=speed, cmap='coolwarm', s=2, marker='o')
+                    sc = ax_map.scatter(x, y, c=speed, s=2, marker='o')
                     ax_map.set_aspect('equal', 'box')
                     ax_map.set_xlabel("X")
                     ax_map.set_ylabel("Y")
@@ -298,7 +323,7 @@ if "session_data" in st.session_state and st.session_state.session_data:
                             x = center_line.x
                             y = center_line.y
                             fig_outline, ax_outline = plt.subplots(figsize=(8, 8))
-                            ax_outline.plot(x, y, color='white', linewidth=2)
+                            ax_outline.plot(x, y, linewidth=2)
                             ax_outline.set_aspect('equal', 'box')
                             ax_outline.set_xlabel("X")
                             ax_outline.set_ylabel("Y")
@@ -335,7 +360,7 @@ if "session_data" in st.session_state and st.session_state.session_data:
                                 ax_ts.axvspan(row['Time'], row['EndTime'], color=color, alpha=0.5, label=label)
                                 plotted = True
                         if plotted:
-                            ax_ts.set_xlabel("Session Time (s)")
+                            ax_ts.set_xlabel("Session Time")
                             ax_ts.set_yticks([])
                             ax_ts.set_title("Track Status Timeline")
                             handles, labels = ax_ts.get_legend_handles_labels()
@@ -348,6 +373,7 @@ if "session_data" in st.session_state and st.session_state.session_data:
                         st.info("No track status data available for this session.")
                 except Exception as e:
                     st.write(f"Could not display track status: {e}")
+
                 st.subheader("📢 Race Control Messages")
                 try:
                     rcm = session.race_control_messages
@@ -370,11 +396,11 @@ if "session_data" in st.session_state and st.session_state.session_data:
                 st.write("**Date:**", session.event['EventDate'])
                 st.write("**Location:**", session.event['Location'])
                 st.write("**Country:**", session.event['Country'])
+
                 # Weather data (show min/max for key columns)
                 try:
                     weather = session.weather_data
                     st.write("**Weather Data (range):**")
-                    weather_ranges = {}
                     for col, label, unit in [
                         ("AirTemp", "Air Temp", "°C"),
                         ("TrackTemp", "Track Temp", "°C"),
@@ -391,6 +417,7 @@ if "session_data" in st.session_state and st.session_state.session_data:
                             st.write(f"- {label}: Not available")
                 except Exception:
                     st.write("No weather data available for this session.")
+
                 # Circuit info
                 try:
                     circuit_info = session.get_circuit_info()
@@ -400,17 +427,19 @@ if "session_data" in st.session_state and st.session_state.session_data:
                     st.write("**Number of Turns:**", getattr(circuit_info, 'number_of_corners', 'N/A'))
                 except Exception:
                     st.write("No circuit info available for this event.")
+
                 # Driver Race Summary
                 st.subheader("📋 Driver Race Summary")
                 num_laps = len(driver_laps)
                 top_speed = telemetry['Speed'].max() if 'Speed' in telemetry else 'N/A'
                 tyre_changes = driver_laps['Compound'].nunique() if 'Compound' in driver_laps else 'N/A'
                 pit_stops_count = driver_laps['PitInTime'].notnull().sum()
-                # Use final_position, total_time, points from above
+
                 overtakes = None
                 if 'Position' in driver_laps.columns:
                     pos_changes = driver_laps['Position'].diff().fillna(0)
                     overtakes = int((pos_changes != 0).sum())
+
                 st.markdown(f"""
                 - 🏎 **Number of Laps Completed**: {num_laps}
                 - 🛞 **Tyre Compounds Used**: {driver_laps['Compound'].unique().tolist()}
@@ -422,13 +451,16 @@ if "session_data" in st.session_state and st.session_state.session_data:
                 - 🏆 **Points Scored**: {points}
                 {(f'- 🔢 **Estimated Overtakes**: {overtakes}' if overtakes is not None else '')}
                 """)
+
                 # Pit Stop Details (all columns)
                 pit_stops = driver_laps[driver_laps['PitInTime'].notnull()].copy()
                 if not pit_stops.empty:
                     st.subheader("⛽ Pit Stop Details (All Columns)")
                     for col in pit_stops.columns:
                         if pd.api.types.is_timedelta64_dtype(pit_stops[col]):
-                            pit_stops[col] = pit_stops[col].apply(lambda x: str(x).split(' days ')[-1][:-3] if pd.notnull(x) else "")
+                            pit_stops[col] = pit_stops[col].apply(
+                                lambda x: str(x).split(' days ')[-1][:-3] if pd.notnull(x) else ""
+                            )
                         elif pd.api.types.is_datetime64_any_dtype(pit_stops[col]):
                             pit_stops[col] = pit_stops[col].dt.strftime('%H:%M:%S.%f').str[:-3]
                         else:
@@ -436,4 +468,210 @@ if "session_data" in st.session_state and st.session_state.session_data:
                     st.dataframe(pit_stops)
                 else:
                     st.write("🚫 No pit stops recorded for this session.")
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            # --- Tab 6: Model & Lap Time Prediction ---
+            with tab6:
+                st.markdown('<div class="graph-container">', unsafe_allow_html=True)
+                st.subheader("🤖 Model Performance & Lap Time Prediction")
+
+                model_pipe = load_laptime_model()
+
+                if model_pipe is None:
+                    st.warning("Lap time model could not be loaded from `models/laptime_best_model.pkl`.")
+                else:
+                    st.markdown("### 🏆 Model Comparison Summary")
+
+                    # Static metrics from your notebook (RandomForest vs LightGBM)
+                    metrics_df = pd.DataFrame([
+                        {
+                            "Model": "RandomForest",
+                            "MAE": 0.194212,
+                            "RMSE": 0.825694,
+                            "R²": 0.996111,
+                            "Accuracy": 0.996320,
+                            "F1": 0.996380,
+                            "AUC": 0.999912,
+                        },
+                        {
+                            "Model": "LightGBM (Selected)",
+                            "MAE": 0.266628,
+                            "RMSE": 0.663674,
+                            "R²": 0.997488,
+                            "Accuracy": 0.994622,
+                            "F1": 0.994715,
+                            "AUC": 0.999896,
+                        },
+                    ])
+
+                    st.dataframe(metrics_df, use_container_width=True)
+
+                    colb1, colb2, colb3 = st.columns(3)
+                    with colb1:
+                        st.metric("Best Model", "LightGBM")
+                    with colb2:
+                        st.metric("RMSE (LightGBM)", f"{0.663674:.3f}")
+                    with colb3:
+                        st.metric("R² (LightGBM)", f"{0.997488:.3f}")
+
+                    st.info(
+                        "LightGBM is used as the final model (saved in `models/laptime_best_model.pkl`) "
+                        "because it achieves the best RMSE and R² on your evaluation set."
+                    )
+
+                    # Feature importance (LightGBM)
+                    st.markdown("### 📈 Top Feature Importances (LightGBM)")
+
+                    try:
+                        pre = model_pipe.named_steps.get("pre", None)
+                        base_model = model_pipe.named_steps.get("model", None)
+
+                        if (pre is not None) and (base_model is not None) and hasattr(base_model, "feature_importances_"):
+                            try:
+                                feature_names = pre.get_feature_names_out()
+                            except Exception:
+                                feature_names = np.array(
+                                    [f"feature_{i}" for i in range(len(base_model.feature_importances_))]
+                                )
+
+                            imp_df = pd.DataFrame({
+                                "feature": feature_names,
+                                "importance": base_model.feature_importances_
+                            }).sort_values("importance", ascending=False)
+
+                            top_n = 20
+                            top_imp = imp_df.head(top_n).iloc[::-1]  # reverse for nicer barh
+
+                            fig_imp, ax_imp = plt.subplots(figsize=(8, 6))
+                            ax_imp.barh(top_imp["feature"], top_imp["importance"])
+                            ax_imp.set_xlabel("Importance")
+                            ax_imp.set_title(f"Top {top_n} Features (LightGBM)")
+                            ax_imp.grid(True, axis="x", alpha=0.3)
+                            plt.tight_layout()
+                            st.pyplot(fig_imp)
+                        else:
+                            st.warning(
+                                "Could not access `pre` and `model` steps or feature importances. "
+                                "Make sure the saved pipeline has steps named `'pre'` and `'model'`."
+                            )
+                    except Exception as e:
+                        st.error(f"Error while computing feature importances: {e}")
+
+                    # Lap time prediction from user input
+                    st.markdown("---")
+                    st.markdown("### 🔮 Predict Lap Time")
+
+                    st.write(
+                        "Enter lap features as `key=value`, one per line. "
+                        "Keys must match the **raw** feature names used when training "
+                        "(before preprocessing). For example:\n\n"
+                        "**Numeric features:**\n"
+                        "`lap_number, sector_1_time, sector_2_time, sector_3_time, position, track_status,`\n"
+                        "`is_pit_lap, air_temp, track_temp, humidity, wind_speed, wind_dir, pressure,`\n"
+                        "`speed_mean, speed_max, throttle_mean, brake_mean, rpm_mean, rpm_max,`\n"
+                        "`drs_activations, speed_min, speed_std, speed_q1, speed_q3, speed_range,`\n"
+                        "`throttle_std, throttle_pct_full, brake_std, brake_pct_braking, rpm_std,`\n"
+                        "`gear_changes, gear_min, drs_active_pct, drs_time_seconds, stint, tyre_life, fresh_tyre`\n\n"
+                        "**Categorical features:**\n"
+                        "`driver, team, compound`\n\n"
+                        "Example input:\n"
+                        "`driver=VER`\n"
+                        "`team=Red Bull Racing`\n"
+                        "`compound=SOFT`\n"
+                        "`lap_number=12`\n"
+                        "`sector_1_time=30.512`\n"
+                        "`sector_2_time=38.921`\n"
+                        "`sector_3_time=24.134`\n"
+                        "`track_temp=41.5`\n"
+                        "`air_temp=28.0`\n"
+                        "`tyre_life=7`\n"
+                        "`drs_time_seconds=4.2`"
+                    )
+
+                    user_kv_text = st.text_area(
+                        "Lap features (key=value per line)",
+                        height=260,
+                        placeholder=(
+                            "driver=VER\n"
+                            "team=Red Bull Racing\n"
+                            "compound=SOFT\n"
+                            "lap_number=12\n"
+                            "sector_1_time=30.512\n"
+                            "sector_2_time=38.921\n"
+                            "sector_3_time=24.134\n"
+                            "position=3\n"
+                            "track_status=1\n"
+                            "is_pit_lap=0\n"
+                            "air_temp=28.0\n"
+                            "track_temp=41.5\n"
+                            "humidity=45.0\n"
+                            "wind_speed=5.2\n"
+                            "wind_dir=180\n"
+                            "pressure=1013.0\n"
+                            "speed_mean=220.5\n"
+                            "speed_max=320.8\n"
+                            "throttle_mean=82.3\n"
+                            "brake_mean=18.7\n"
+                            "rpm_mean=11000\n"
+                            "rpm_max=12500\n"
+                            "drs_activations=12\n"
+                            "speed_min=80.2\n"
+                            "speed_std=15.3\n"
+                            "speed_q1=205.0\n"
+                            "speed_q3=235.0\n"
+                            "speed_range=240.6\n"
+                            "throttle_std=10.5\n"
+                            "throttle_pct_full=60.0\n"
+                            "brake_std=5.7\n"
+                            "brake_pct_braking=32.0\n"
+                            "rpm_std=800.0\n"
+                            "gear_changes=38\n"
+                            "gear_min=2\n"
+                            "drs_active_pct=30.0\n"
+                            "drs_time_seconds=4.2\n"
+                            "stint=2\n"
+                            "tyre_life=7\n"
+                            "fresh_tyre=0"
+                        ),
+                        key="lap_pred_kv",
+                    )
+
+                    if st.button("🚀 Predict Lap Time", key="predict_laptime_btn"):
+                        if not user_kv_text.strip():
+                            st.warning("Please provide at least one `key=value` pair.")
+                        else:
+                            feature_dict = {}
+                            for line in user_kv_text.splitlines():
+                                line = line.strip()
+                                if not line or "=" not in line:
+                                    continue
+                                key, val = line.split("=", 1)
+                                key = key.strip()
+                                val = val.strip()
+
+                                # Try casting to float; otherwise leave as string (for categoricals)
+                                try:
+                                    num_val = float(val)
+                                    feature_dict[key] = num_val
+                                except ValueError:
+                                    feature_dict[key] = val
+
+                            if not feature_dict:
+                                st.warning("No valid `key=value` pairs were parsed.")
+                            else:
+                                input_df = pd.DataFrame([feature_dict])
+
+                                st.write("Parsed features sent to the model:")
+                                st.dataframe(input_df)
+
+                                try:
+                                    y_pred = model_pipe.predict(input_df)[0]
+                                    st.success(f"Predicted Lap Time: **{y_pred:.3f} seconds**")
+                                except Exception as e:
+                                    st.error(f"Model could not predict with these inputs: {e}")
+                                    st.info(
+                                        "Check that the feature names and types match those used in training "
+                                        "(same raw column names as in your notebook before preprocessing)."
+                                    )
+
                 st.markdown('</div>', unsafe_allow_html=True)
