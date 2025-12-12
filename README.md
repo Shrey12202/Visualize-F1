@@ -155,12 +155,14 @@ This ensures performance reflects **true forward-looking prediction**.
 
 ---
 
-## 📈 **Current Model Performance (Example)**
+## 📈 **Current Model Performance **
 
-| Model        | MAE (sec) | RMSE (sec) | R²    |
-| ------------ | --------- | ---------- | ----- |
-| RandomForest | ~3.5      | ~7.8       | ~0.13 |
-| XGBoost      | ~3.7      | ~7.9       | ~0.12 |
+| Model        | MAE (sec) | RMSE (sec) | R²      |
+| ------------ | --------- | ---------- | ------  |
+| RandomForest | 0.9487    | 1.5867     | 0.8555  |
+| GradBoost    | 0.8690    | 1.638      | 0.8460  |
+| XGBoost      | 0.7446    | 1.3287     | 0.8987  |
+
 
 > Performance is realistic given the inherent noise and stochasticity of race conditions.
 
