@@ -167,7 +167,7 @@ This ensures performance reflects **true forward-looking prediction**.
 
 ## 🖥️ **Streamlit Dashboard (`app.py`)**
 
-The dashboard provides:
+The dashboard for current data visualization provides:
 
 ### Telemetry Visualization
 
