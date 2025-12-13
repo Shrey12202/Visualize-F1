@@ -53,9 +53,6 @@ visualize_f1/
 │
 ├── cache/                          # FastF1 cache
 │
-├── trial/                          # Experimental notebooks
-├── try/
-│
 ├── intial_data_analysis.ipynb
 ├── f1_lap_prediction_MULTIYEAR_Final.ipynb
 ├── tyre_strategy_withfuel.ipynb
